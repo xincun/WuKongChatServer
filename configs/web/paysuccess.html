@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1.0,minimum=1.0,user-scalable=no">
+    <meta name="format-detection" content="telephone=no, email=no">
+    <title>支付成功</title>
+    <script type="text/javascript">
+
+        var u = navigator.userAgent
+        var isAndroid = u.indexOf('Android') > -1 || u.indexOf('Adr') > -1
+        var isiOS = !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/)
+        function setupWebViewJavascriptBridge(callback) {
+            if (isAndroid) {
+                if (window.WebViewJavascriptBridge) {
+                    return callback(window.WebViewJavascriptBridge)
+                }
+            } else {
+                if (window.WKWebViewJavascriptBridge) {
+                    return callback(window.WKWebViewJavascriptBridge)
+                }
+            }
+            if (window.WVJBCallbacks) {
+                return window.WVJBCallbacks.push(callback)
+            }
+            window.WVJBCallbacks = [callback]
+            var WVJBIframe = document.createElement('iframe')
+            WVJBIframe.style.display = 'none'
+            WVJBIframe.src = 'wvjbscheme://__BRIDGE_LOADED__'
+            document.documentElement.appendChild(WVJBIframe)
+            setTimeout(function () {
+                document.documentElement.removeChild(WVJBIframe)
+            }, 0)
+        }
+        function connectWebViewJavascriptBridge(callback) {
+            if (isAndroid) {
+                if (window.WebViewJavascriptBridge) {
+                    callback(window.WebViewJavascriptBridge)
+                } else {
+                    document.addEventListener(
+                            'WebViewJavascriptBridgeReady',
+                            function () {
+                                callback(window.WebViewJavascriptBridge)
+                            },
+                            false
+                    )
+                }
+            } else {
+                if (window.WKWebViewJavascriptBridge) {
+                    callback(window.WKWebViewJavascriptBridge)
+                } else {
+                    document.addEventListener(
+                            'WKWebViewJavascriptBridgeReady',
+                            function () {
+                                callback(window.WKWebViewJavascriptBridge)
+                            },
+                            false
+                    )
+                }
+            }
+        }
+        var appInitCompleted = function (callback) {
+            if (isAndroid) {
+                connectWebViewJavascriptBridge(function (bridge) {
+                    window.webBridge = bridge
+                    bridge.init(function (message, responseCallback) {
+                        var data = {
+                            'Javascript Responds': 'test!'
+                        }
+                        responseCallback(data)
+                    })
+                    callback(bridge)
+                })
+            } else if (isiOS) {
+                setupWebViewJavascriptBridge(function (bridge) {
+                    window.webBridge = bridge
+                    callback(bridge)
+                })
+            } else { // web
+                callback()
+            }
+        }
+        appInitCompleted(function (webBridge) {
+
+        })
+
+        function backPressed() {
+            // body...
+            window.webBridge.callHandler('unionPayCallBack',{},function(responseData) {
+
+            })
+        }
+
+    </script>
+</head>
+<body>
+<div style="width: 100%;text-align: center;margin-top: 10px">
+    <img  src="success.png" style="width: 64px;height: 64px" />
+    <h1>支付成功</h1>
+    <button style="width: 80%;height: 44px;background-color: #4FAAE5;color: white" onclick="backPressed()">返回</button>
+</div>
+</body>
+</html>
