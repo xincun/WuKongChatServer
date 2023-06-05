@@ -7,14 +7,14 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"image/jpeg"
+	_ "image/jpeg"
 	"image/png"
+	_ "image/png"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -22,7 +22,7 @@ import (
 	"github.com/WuKongIM/WuKongChatServer/pkg/log"
 	limlog "github.com/WuKongIM/WuKongChatServer/pkg/log"
 	"github.com/WuKongIM/WuKongChatServer/pkg/util"
-	"github.com/nfnt/resize"
+	"github.com/disintegration/imaging"
 	"go.uber.org/zap"
 )
 
@@ -119,17 +119,21 @@ func (s *Service) DownloadAndMakeCompose(uploadPath string, downloadURLs []strin
 				s.Warn("读取默认头像失败！", zap.String("avatar", s.ctx.GetConfig().DefaultAvatar), zap.Error(err))
 			}
 		}
+		defer file.Close()
 		files = append(files, file)
 	}
+
+	// 拼图
 	img, err := s.MakeCompose(files)
 	if err != nil {
 		s.Error("组合图片失败！", zap.Error(err))
 		return nil, err
 	}
+
 	// uploadURL := fmt.Sprintf("%s/public%s", s.ctx.GetConfig().UploadURL, uploadPath)
 	// 上传文件
 	resultMap, err := s.UploadFile(uploadPath, "image/png", func(w io.Writer) error {
-		return jpeg.Encode(w, img, &jpeg.Options{Quality: 90})
+		return png.Encode(w, img)
 	})
 	if err != nil {
 		s.Error("上传文件失败！", zap.Error(err))
@@ -149,97 +153,235 @@ func (s *Service) MakeCompose(srcImgFiles []*os.File) (image.Image, error) {
 
 	groupWith := 128 + borderWidth
 	groupHeight := 128 + borderWidth
-	bounds := image.Rect(0, 0, groupWith, groupHeight)
+	// bounds := image.Rect(0, 0, groupWith, groupHeight)
 	num := len(srcImgFiles)
-
-	m := image.NewRGBA(bounds)
-	white := color.RGBA{219, 223, 221, 221}
-	draw.Draw(m, bounds, &image.Uniform{white}, image.ZP, draw.Src)
-
-	wx := 0
-	hy := -1
+	backgroundColor := color.RGBA{255, 255, 255, 255}
+	newImg := imaging.New(groupWith, groupHeight, backgroundColor)
+	newImg = opacityAdjust(newImg, 0) // 透明
+	wx := 0                           //第几列
+	hy := 0                           // 第几行
 	for i := 0; i < num; i++ {
 
 		if num == 3 {
 			if i == 0 || i == 1 {
-				hy++
+				hy += 1
 				wx = 0
 			}
 		} else if num == 4 {
-			if i%2 == 0 {
-				hy++
+			if i > 0 && i%2 == 0 {
+				hy += 1
 				wx = 0
 			}
 		} else if num == 5 {
-			if i == 2 || i == 0 {
-				hy++
+			if i == 1 || i == 0 {
+				hy = 0
+			} else if i == 2 {
 				wx = 0
+				hy += 1
+			}
+		} else if num == 7 {
+			if i > 0 {
+				if (i-1)%3 == 0 {
+					hy = hy + 1
+					wx = 0
+				}
+			}
+		} else if num == 8 {
+			if i > 1 {
+				if (i-2)%3 == 0 {
+					hy = hy + 1
+					wx = 0
+				}
 			}
 		} else {
-			if i%3 == 0 {
-				hy++
+			if i > 0 && i%3 == 0 {
+				hy += 1
 				wx = 0
 			}
 		}
 		file := srcImgFiles[i]
 
-		fileExt := filepath.Ext(file.Name())
+		// fileExt := filepath.Ext(file.Name())
 
-		var m1 image.Image
+		var memberImg image.Image
 		var err error
-		if fileExt == "png" {
-			m1, err = png.Decode(file)
-		} else {
-			m1, err = jpeg.Decode(file)
-			if err != nil {
-				s.Warn("jpeg编码出错！【%s】 将采用png编码", zap.Error(err))
-				m1, err = png.Decode(file)
-			}
-		}
 
+		memberImg, _, err = image.Decode(file)
 		if err != nil {
 			log.Error(fmt.Sprintf("图片编码错误【%s】!", err.Error()))
 			continue
 		}
+
+		// 画圆角
+		imgWidth := memberImg.Bounds().Dx()
+		imgHeight := memberImg.Bounds().Dy()
+		c := radius{p: image.Point{X: memberImg.Bounds().Dx(), Y: memberImg.Bounds().Dy()}, r: int(float32(imgWidth) * 0.4)}
+		smallImgWithRadiuRGBA := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
+		draw.DrawMask(smallImgWithRadiuRGBA, smallImgWithRadiuRGBA.Bounds(), memberImg, image.Point{}, &c, image.Point{}, draw.Over)
+
 		var mbounds image.Rectangle
+		var smallImgWithRadiu image.Image
 		//缩略图
 		if num >= 5 {
-			m1 = resize.Resize(uint(minwidth), uint(minheight), m1, resize.Lanczos3)
+			smallImgWithRadiu = imaging.Resize(smallImgWithRadiuRGBA, minwidth, minheight, imaging.Lanczos)
 		} else {
-			m1 = resize.Resize(uint(maxwidth), uint(maxheight), m1, resize.Lanczos3)
+			smallImgWithRadiu = imaging.Resize(smallImgWithRadiuRGBA, maxwidth, maxheight, imaging.Lanczos)
 		}
 
-		if num == 2 {
-			mbounds = image.Rect(borderWidth+int(maxwidth)*wx, borderWidth+int(maxheight)*hy+(maxheight-borderWidth)/2, m1.Bounds().Size().X+int(maxwidth)*wx, m1.Bounds().Size().Y+int(maxheight)*hy+(maxheight-borderWidth)/2)
-		} else if num == 3 {
+		var x, y int
+		var width, height int
+		if num == 1 {
+			width = maxwidth
+			height = width
+			x, y = (groupWith-maxwidth)/2, (groupHeight-maxheight)/2
+		} else if num == 2 { // 两张图
+			width = (groupWith - borderWidth) / 2
+			height = width
 			if i == 0 {
-				mbounds = image.Rect((maxwidth-borderWidth)/2, borderWidth, m1.Bounds().Size().X+(maxwidth-borderWidth)/2+int(maxwidth)*wx, m1.Bounds().Size().Y+int(maxheight)*hy)
+				x, y = 0, (groupHeight-height)/2
 			} else {
-				mbounds = image.Rect(borderWidth+int(maxwidth)*wx, borderWidth+int(maxheight)*hy, m1.Bounds().Size().X+int(maxwidth)*wx, m1.Bounds().Size().Y+int(maxheight)*hy)
+				x, y = borderWidth+width, (groupHeight-height)/2
 			}
-		} else if num == 5 {
-			h := int(minheight)*hy + (minheight-borderWidth)/2
-			if i <= 1 {
-				mbounds = image.Rect(borderWidth+int(minwidth)*wx+(minwidth-borderWidth)/2, h+borderWidth, m1.Bounds().Size().X+int(minwidth)*wx+(minwidth-borderWidth)/2, m1.Bounds().Size().Y+h)
+		} else if num == 3 {
+			width = (groupWith - borderWidth) / 2
+			height = width
+			if i == 0 {
+				x, y = (groupWith-width)/2, (groupHeight-(height*2+borderWidth))/2
 			} else {
-				mbounds = image.Rect(borderWidth+int(minwidth)*wx, h+borderWidth, m1.Bounds().Size().X+int(minwidth)*wx, m1.Bounds().Size().Y+h)
+				x, y = wx*width+wx*borderWidth, (groupHeight-(height*2+borderWidth))/2+height+borderWidth
+			}
+		} else if num == 4 {
+			width = (groupWith - borderWidth) / 2
+			height = width
+			x, y = wx*width+wx*borderWidth, (groupHeight-(height*2+borderWidth))/2+hy*(height+borderWidth)
+
+		} else if num == 5 {
+			width = (groupWith - borderWidth*2) / 3
+			height = width
+			if i == 0 || i == 1 {
+				offset := (groupWith - (width*2 + borderWidth)) / 2
+				x, y = offset+wx*width+wx*borderWidth, (groupHeight-(height*2+borderWidth))/2
+			} else {
+				x, y = wx*width+wx*borderWidth, (groupHeight-(height*2+borderWidth))/2+hy*(height+borderWidth)
 			}
 		} else if num == 6 {
-			mbounds = image.Rect(borderWidth+int(minwidth)*wx, borderWidth+int(minheight)*hy+(minheight-borderWidth)/2, m1.Bounds().Size().X+int(minwidth)*wx, m1.Bounds().Size().Y+(minheight-borderWidth)/2+int(minheight)*hy)
-		} else {
-			if num > 5 {
-				mbounds = image.Rect(borderWidth+int(minwidth)*wx, borderWidth+int(minheight)*hy, m1.Bounds().Size().X+int(minwidth)*wx, m1.Bounds().Size().Y+int(minheight)*hy)
+			width = (groupWith - borderWidth*2) / 3
+			height = width
+			x, y = wx*width+wx*borderWidth, (groupHeight-(height*2+borderWidth))/2+hy*(height+borderWidth)
+		} else if num == 7 {
+			width = (groupWith - borderWidth*2) / 3
+			height = width
+			if i == 0 {
+				offset := (groupWith - width) / 2
+				x, y = offset+wx*width+wx*borderWidth, (groupHeight-(height*3+borderWidth*2))/2
 			} else {
-				mbounds = image.Rect(borderWidth+int(maxwidth)*wx, borderWidth+int(maxheight)*hy, m1.Bounds().Size().X+int(maxwidth)*wx, m1.Bounds().Size().Y+int(maxheight)*hy)
+				x, y = wx*width+wx*borderWidth, hy*(height+borderWidth)
 			}
+		} else if num == 8 {
+			width = (groupWith - borderWidth*2) / 3
+			height = width
+			if i == 0 || i == 1 {
+				offset := (groupWith - (width*2 + borderWidth)) / 2
+				x, y = offset+wx*width+wx*borderWidth, (groupHeight-(height*3+borderWidth*2))/2
+			} else {
+				x, y = wx*width+wx*borderWidth, (groupHeight-(height*3+borderWidth*2))/2+hy*(height+borderWidth)
+			}
+		} else if num == 9 {
+			width = (groupWith - borderWidth*2) / 3
+			height = width
+			x, y = wx*width+wx*borderWidth, (groupHeight-(height*3+borderWidth*2))/2+hy*(height+borderWidth)
 		}
-
-		draw.Draw(m, mbounds, m1, image.ZP, draw.Src)
-
+		mbounds = image.Rect(x, y, width+x, height+y)
+		smallImgWithRadiu = imaging.Resize(smallImgWithRadiuRGBA, width, height, imaging.Lanczos)
+		draw.Draw(newImg, mbounds, smallImgWithRadiu, image.Point{}, draw.Src)
 		wx++
 	}
 
-	return m, nil
+	return newImg, nil
+}
+
+// 圆角
+type radius struct {
+	p image.Point // 矩形右下角位置
+	r int
+}
+
+func (c *radius) ColorModel() color.Model {
+	return color.AlphaModel
+}
+func (c *radius) Bounds() image.Rectangle {
+	return image.Rect(0, 0, c.p.X, c.p.Y)
+}
+
+// 对每个像素点进行色值设置，分别处理矩形的四个角，在四个角的内切圆的外侧，色值设置为全透明，其他区域不透明
+func (c *radius) At(x, y int) color.Color {
+	var xx, yy, rr float64
+	var inArea bool
+	// left up
+	if x <= c.r && y <= c.r {
+		xx, yy, rr = float64(c.r-x)+0.5, float64(y-c.r)+0.5, float64(c.r)
+		inArea = true
+	}
+	// right up
+	if x >= (c.p.X-c.r) && y <= c.r {
+		xx, yy, rr = float64(x-(c.p.X-c.r))+0.5, float64(y-c.r)+0.5, float64(c.r)
+		inArea = true
+	}
+	// left bottom
+	if x <= c.r && y >= (c.p.Y-c.r) {
+		xx, yy, rr = float64(c.r-x)+0.5, float64(y-(c.p.Y-c.r))+0.5, float64(c.r)
+		inArea = true
+	}
+	// right bottom
+	if x >= (c.p.X-c.r) && y >= (c.p.Y-c.r) {
+		xx, yy, rr = float64(x-(c.p.X-c.r))+0.5, float64(y-(c.p.Y-c.r))+0.5, float64(c.r)
+		inArea = true
+	}
+	if inArea && xx*xx+yy*yy >= rr*rr {
+		return color.Alpha{}
+	}
+	return color.Alpha{A: 255}
+}
+
+func imageTypeToRGBA64(m *image.NRGBA) *image.RGBA64 {
+	bounds := (*m).Bounds()
+	dx := bounds.Dx()
+	dy := bounds.Dy()
+	newRgba := image.NewRGBA64(bounds)
+	for i := 0; i < dx; i++ {
+		for j := 0; j < dy; j++ {
+			colorRgb := (*m).At(i, j)
+			r, g, b, a := colorRgb.RGBA()
+			nR := uint16(r)
+			nG := uint16(g)
+			nB := uint16(b)
+			alpha := uint16(a)
+			newRgba.SetRGBA64(i, j, color.RGBA64{R: nR, G: nG, B: nB, A: alpha})
+		}
+	}
+	return newRgba
+
+}
+
+// 将输入图像m的透明度变为原来的倍数。若原来为完成全不透明，则percentage = 0.5将变为半透明
+func opacityAdjust(m *image.NRGBA, percentage float64) *image.NRGBA {
+	bounds := m.Bounds()
+	dx := bounds.Dx()
+	dy := bounds.Dy()
+	// newRgba := image.NewRGBA64(bounds)
+	for i := 0; i < dx; i++ {
+		for j := 0; j < dy; j++ {
+			colorRgb := m.At(i, j)
+			r, g, b, a := colorRgb.RGBA()
+			opacity := uint16(float64(a) * percentage)
+			//颜色模型转换，至关重要！
+			v := m.ColorModel().Convert(color.NRGBA64{R: uint16(r), G: uint16(g), B: uint16(b), A: opacity})
+			//Alpha = 0: Full transparent
+			rr, gg, bb, aa := v.RGBA()
+			m.SetRGBA64(i, j, color.RGBA64{R: uint16(rr), G: uint16(gg), B: uint16(bb), A: uint16(aa)})
+		}
+	}
+	return m
 }
 
 var uploadClient *http.Client

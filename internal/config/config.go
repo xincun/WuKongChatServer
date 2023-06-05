@@ -125,6 +125,7 @@ type Config struct {
 	PushContentDetailOn bool   // 推送是否显示正文详情(如果为false，则只显示“您有一条新的消息” 默认为true)
 
 	// ---------- 短信运营商 ----------
+	SMSCode                string // 模拟的短信验证码
 	SMSProvider            SMSProvider
 	UniSMS                 UnismsConfig
 	AliyunSMS              AliyunSMSConfig
@@ -240,6 +241,7 @@ func New() *Config {
 		TimingWheelSize:      100,
 		MinioAccessKeyID:     GetEnv("MinioAccessKeyID", ""),
 		MinioSecretAccessKey: GetEnv("MinioSecretAccessKey", ""),
+		SMSCode:              GetEnv("SMSCode", ""),
 		UniSMS: UnismsConfig{
 			AccessKeyID: GetEnv("UniSMS.AccessKeyID", ""),
 			Signature:   GetEnv("UniSMS.Signature", ""),
@@ -286,7 +288,7 @@ func New() *Config {
 		// ---------- other ----------
 		RegisterOnlyChina:           GetEnvBool("RegisterOnlyChina", false),
 		EndToEndEncryptionOn:        GetEnvBool("EndToEndEncryptionOn", true),
-		GRPCAddr:                    GetEnv("GRPCAddr", "127.0.0.1:6979"),
+		GRPCAddr:                    GetEnv("GRPCAddr", "0.0.0.0:6979"),
 		RegisterOff:                 GetEnvBool("RegisterOff", false),
 		StickerAddOffOfRegister:     GetEnvBool("StickerAddOffOfRegister", false),
 		GroupUpgradeWhenMemberCount: GetEnvInt("GroupUpgradeWhenMemberCount", 1000),

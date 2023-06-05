@@ -575,9 +575,10 @@ func (m *Message) syncChannelMessage(c *wkhttp.Context) {
 		}
 		if !exist {
 			c.JSON(http.StatusOK, &syncChannelMessageResp{
-				MinMessageSeq: req.MinMessageSeq,
-				MaxMessageSeq: req.MaxMessageSeq,
-				Messages:      make([]*MsgSyncResp, 0),
+				StartMessageSeq: req.EndMessageSeq,
+				EndMessageSeq:   req.EndMessageSeq,
+				PullMode:        req.PullMode,
+				Messages:        make([]*MsgSyncResp, 0),
 			})
 			return
 		}
@@ -589,6 +590,7 @@ func (m *Message) syncChannelMessage(c *wkhttp.Context) {
 		c.ResponseError(errors.New("同步频道内的消息失败！"))
 		return
 	}
+	fmt.Println("resp----messages-->", len(resp.Messages))
 
 	c.Response(newSyncChannelMessageResp(resp, c.GetLoginUID(), req.DeviceUUID, req.ChannelID, req.ChannelType, m.messageExtraDB, m.messageUserExtraDB, m.messageReactionDB, m.channelOffsetDB, m.deviceOffsetDB))
 }
@@ -1000,8 +1002,6 @@ func (m *Message) sync(c *wkhttp.Context) {
 		UID:        uid,
 		MessageSeq: req.MaxMessageSeq,
 		Limit:      req.Limit,
-		Reverse:    req.Reverse,
-		Offset:     req.Offset,
 	})
 	if err != nil {
 		m.Error("同步消息失败！", zap.Error(err), zap.String("uid", uid))
@@ -1653,10 +1653,11 @@ func (m *Message) eraseForType(fromUID, channelID string, channelType uint8, typ
 // ---------- vo ----------
 
 type syncChannelMessageResp struct {
-	MinMessageSeq uint32         `json:"min_message_seq"` // 开始序列号
-	MaxMessageSeq uint32         `json:"max_message_seq"` // 结束序列号
-	More          int            `json:"more"`            // 是否还有更多 1.是 0.否
-	Messages      []*MsgSyncResp `json:"messages"`        // 消息数据
+	StartMessageSeq uint32          `json:"start_message_seq"` // 开始序列号
+	EndMessageSeq   uint32          `json:"end_message_seq"`   // 结束序列号
+	PullMode        config.PullMode `json:"pull_mode"`         // 拉取模式
+	More            int             `json:"more"`              // 是否还有更多 1.是 0.否
+	Messages        []*MsgSyncResp  `json:"messages"`          // 消息数据
 }
 
 func newSyncChannelMessageResp(resp *config.SyncChannelMessageResp, loginUID string, deviceUUID string, channelID string, channelType uint8, messageExtraDB *messageExtraDB, messageUserExtraDB *messageUserExtraDB, messageReactionDB *messageReactionDB, channelOffsetDB *channelOffsetDB, deviceOffsetDB *deviceOffsetDB) *syncChannelMessageResp {
@@ -1719,7 +1720,6 @@ func newSyncChannelMessageResp(resp *config.SyncChannelMessageResp, loginUID str
 		if err != nil {
 			log.Error("查询设备消息偏移量失败！", zap.Error(err))
 		}
-
 		for _, message := range resp.Messages {
 			if channelOffsetM != nil && message.MessageSeq <= channelOffsetM.MessageSeq {
 				continue
@@ -1736,10 +1736,10 @@ func newSyncChannelMessageResp(resp *config.SyncChannelMessageResp, loginUID str
 		}
 	}
 	return &syncChannelMessageResp{
-		MinMessageSeq: resp.MinMessageSeq,
-		MaxMessageSeq: resp.MaxMessageSeq,
-		More:          resp.More,
-		Messages:      messages,
+		StartMessageSeq: resp.StartMessageSeq,
+		EndMessageSeq:   resp.EndMessageSeq,
+		PullMode:        resp.PullMode,
+		Messages:        messages,
 	}
 }
 

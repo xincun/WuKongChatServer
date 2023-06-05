@@ -551,24 +551,31 @@ func (c *Context) handlerIMError(resp *rest.Response) error {
 
 // ---------- req  ----------
 
+type PullMode int
+
+const (
+	PullModeDown PullMode = iota
+	PullModeUp
+)
+
 // SyncChannelMessageReq 同步频道消息请求
 type SyncChannelMessageReq struct {
-	LoginUID      string `json:"login_uid"`
-	DeviceUUID    string `json:"device_uuid"`
-	ChannelID     string `json:"channel_id"`
-	ChannelType   uint8  `json:"channel_type"`
-	MinMessageSeq uint32 `json:"min_message_seq"` // 开始序列号
-	MaxMessageSeq uint32 `json:"max_message_seq"` // 结束序列号
-	Limit         int    `json:"limit"`           // 每次同步数量限制
-	Reverse       int    `json:"reverse"`         // 是否反转查询
+	LoginUID        string   `json:"login_uid"`
+	DeviceUUID      string   `json:"device_uuid"`
+	ChannelID       string   `json:"channel_id"`
+	ChannelType     uint8    `json:"channel_type"`
+	StartMessageSeq uint32   `json:"start_message_seq"` // 开始序列号
+	EndMessageSeq   uint32   `json:"end_message_seq"`   // 结束序列号
+	Limit           int      `json:"limit"`             // 每次同步数量限制
+	PullMode        PullMode `json:"pull_mode"`         // 拉取模式
 }
 
 // SyncChannelMessageResp 同步频道消息返回
 type SyncChannelMessageResp struct {
-	MinMessageSeq uint32         `json:"min_message_seq"` // 开始序列号
-	MaxMessageSeq uint32         `json:"max_message_seq"` // 结束序列号
-	More          int            `json:"more"`            // 是否还有更多 1.是 0.否
-	Messages      []*MessageResp `json:"messages"`        // 消息数据
+	StartMessageSeq uint32         `json:"start_message_seq"` // 开始序列号
+	EndMessageSeq   uint32         `json:"end_message_seq"`   // 结束序列号
+	PullMode        PullMode       `json:"pull_mode"`         // 拉取模式
+	Messages        []*MessageResp `json:"messages"`          // 消息数据
 }
 
 // ClearConversationUnreadReq 清除用户某个频道未读数请求
@@ -744,8 +751,6 @@ type MsgSyncReq struct {
 	UID        string `json:"uid"`         // 谁的消息
 	MessageSeq uint32 `json:"message_seq"` // 客户端最大消息序列号
 	Limit      int    `json:"limit"`       // 消息数量限制
-	Reverse    int    `json:"reverse"`     // 是否倒序
-	Offset     int64  `json:"offset"`      // 偏移量
 }
 
 // MsgHeader 消息头

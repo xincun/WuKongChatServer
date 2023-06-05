@@ -256,7 +256,7 @@ func (u *User) UserAvatar(c *wkhttp.Context) {
 	}
 	if uid == u.ctx.GetConfig().SystemUID {
 		c.Header("Content-Type", "image/jpeg")
-		avatarBytes, err := ioutil.ReadFile("configs/assets/u_10000.jpg")
+		avatarBytes, err := ioutil.ReadFile("configs/assets/u_10000.png")
 		if err != nil {
 			u.Error("系统用户头像读取失败！", zap.Error(err))
 			c.Writer.WriteHeader(http.StatusNotFound)
@@ -1019,8 +1019,8 @@ func (u *User) register(c *wkhttp.Context) {
 		return
 	}
 	//测试模式
-	if u.ctx.GetConfig().Test {
-		if req.Code != "123456" {
+	if strings.TrimSpace(u.ctx.GetConfig().SMSCode) != "" {
+		if strings.TrimSpace(u.ctx.GetConfig().SMSCode) != req.Code {
 			c.ResponseError(errors.New("验证码错误"))
 			return
 		}
