@@ -56,6 +56,37 @@ func (cn *Common) Route(r *wkhttp.WKHttp) {
 		commonNoAuth.GET("/updater/:os/:version", cn.updater) // 版本更新检查（兼容tauri）
 	}
 
+	r.GET("/v1/health", func(c *wkhttp.Context) {
+		var (
+			statusMap = map[string]string{
+				"status": "up",
+				"db":     "up",
+				"redis":  "up",
+			}
+			lastError error
+		)
+
+		err := cn.db.session.Ping()
+		if err != nil {
+			cn.Error("db ping error", zap.Error(err))
+			lastError = err
+			statusMap["db"] = "down"
+		}
+
+		_, err = cn.ctx.GetRedisConn().Ping()
+		if err != nil {
+			cn.Error("redis ping error", zap.Error(err))
+			lastError = err
+			statusMap["redis"] = "down"
+		}
+
+		if lastError != nil {
+			statusMap["status"] = "down"
+		}
+
+		c.JSON(http.StatusOK, statusMap)
+	})
+
 	appConfigM, err := cn.insertAppConfigIfNeed()
 	if err != nil {
 		panic(err)
