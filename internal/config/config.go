@@ -81,7 +81,7 @@ type Config struct {
 	NodeID               int           //  节点ID 节点ID需要小于1024
 	Test                 bool          // 是否是测试模式
 	IMURL                string        // im基地址
-	MessagePoolSize      int64         // 发消息任务池大小
+	EventPoolSize        int64         // 事件任务池大小
 	PushPoolSize         int64         // 推送任务池大小
 	UploadService        UploadService // 上传服务
 	UploadURL            string        // 上传地址
@@ -121,7 +121,6 @@ type Config struct {
 	ElasticsearchURL string // elasticsearch 地址
 
 	FileHelperName      string // 文件上传助手的名称
-	FileHelperAvatar    string // 文件上传助手的头像
 	PushContentDetailOn bool   // 推送是否显示正文详情(如果为false，则只显示“您有一条新的消息” 默认为true)
 
 	// ---------- 短信运营商 ----------
@@ -166,7 +165,6 @@ type Config struct {
 	// ---------- 其他 ----------
 	MessageSaveAcrossDevice bool   // 消息是否跨设备保存（换设备登录消息是否还能同步到老消息）
 	RegisterOnlyChina       bool   // 是否仅仅中国手机号可以注册
-	EndToEndEncryptionOn    bool   // 是否开启端对端加密 默认开启
 	GRPCAddr                string // grpc的通信地址 （建议内网通信）
 	RegisterOff             bool   // 是否关闭注册
 	StickerAddOffOfRegister bool   // 是否关闭注册添加表情
@@ -212,7 +210,7 @@ func New() *Config {
 		UIDTokenCachePrefix:         "uidtoken:",
 		FriendApplyTokenCachePrefix: "friend_token:",
 		FriendApplyExpire:           time.Hour * 24 * 15,
-		MessagePoolSize:             100,
+		EventPoolSize:               GetEnvInt64("EventPoolSize", 100),
 		PushPoolSize:                GetEnvInt64("PushPoolSize", 100),
 		APNSDev:                     GetEnvBool("APNSDev", true),
 		APNSPassword:                GetEnv("APNSPassword", "123456"),
@@ -269,7 +267,6 @@ func New() *Config {
 		DefaultAvatar:           "configs/assets/avatar.png",
 		ElasticsearchURL:        "http://elasticsearch:9200",
 		FileHelperName:          "文件传输助手",
-		FileHelperAvatar:        "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1589347370173&di=5c94e79d1cfe1e493460144d7f525abb&imgtype=0&src=http%3A%2F%2Fr.sinaimg.cn%2Flarge%2Farticle%2Fa26f4cee14bb0b95d05a2e0b20b26c19.png",
 		TracingOn:               GetEnvBool("TracingOn", false),
 		TracerAddr:              GetEnv("TracerAddr", ""),
 		SystemGroupName:         GetEnv("SystemGroupName", "悟空聊天压力测试群"),
@@ -278,7 +275,7 @@ func New() *Config {
 		SupportEmailPwd:         GetEnv("SupportEmailPwd", ""),
 		WebLoginURL:             GetEnv("WebLoginURL", "http://localhost:3000/login"),
 		MessageSaveAcrossDevice: GetEnvBool("MessageSaveAcrossDevice", true),
-		// --------- 微信支付 ----------
+		// --------- 微信登录 ----------
 		WXAppID:  GetEnv("WXAppID", ""),
 		WXSecret: GetEnv("WXSecret", ""),
 		// --------- robot ----------
@@ -287,7 +284,6 @@ func New() *Config {
 		RobotEventPoolSize:     100,
 		// ---------- other ----------
 		RegisterOnlyChina:           GetEnvBool("RegisterOnlyChina", false),
-		EndToEndEncryptionOn:        GetEnvBool("EndToEndEncryptionOn", true),
 		GRPCAddr:                    GetEnv("GRPCAddr", "0.0.0.0:6979"),
 		RegisterOff:                 GetEnvBool("RegisterOff", false),
 		StickerAddOffOfRegister:     GetEnvBool("StickerAddOffOfRegister", false),

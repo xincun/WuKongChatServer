@@ -48,10 +48,7 @@ func (s *Server) Init(env svc.Environment) error {
 func (s *Server) run(sslAddr string, addr ...string) error {
 
 	// s.r.LoadHTMLGlob("configs/webroot/**/*.html")
-	s.r.Static("/swagger", "./configs/swagger")
 	s.r.Static("/web", "./configs/web")
-	s.r.Static("/html", "./configs/webroot")
-	s.r.Static("/resources", "./configs/resources")
 	s.r.Any("/v1/ping", func(c *wkhttp.Context) {
 		c.ResponseOK()
 	})

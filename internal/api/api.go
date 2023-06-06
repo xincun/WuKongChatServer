@@ -4,16 +4,13 @@ import (
 	"github.com/WuKongIM/WuKongChatServer/internal/api/base/event"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/channel"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/common"
-	"github.com/WuKongIM/WuKongChatServer/internal/api/favorite"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/file"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/group"
-	"github.com/WuKongIM/WuKongChatServer/internal/api/label"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/message"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/qrcode"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/report"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/robot"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/statistics"
-	"github.com/WuKongIM/WuKongChatServer/internal/api/sticker"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/user"
 	"github.com/WuKongIM/WuKongChatServer/internal/api/webhook"
 	"github.com/WuKongIM/WuKongChatServer/internal/config"
@@ -40,8 +37,6 @@ func Init(ctx *config.Context) {
 	register.Add(message.New(ctx))
 	// 群api
 	register.Add(group.New(ctx))
-	// 贴图
-	register.Add(sticker.New(ctx))
 	// 最近会话
 	register.Add(message.NewConversation(ctx))
 	// webhook
@@ -50,10 +45,6 @@ func Init(ctx *config.Context) {
 	register.Add(file.New(ctx))
 	// qrcode
 	register.Add(qrcode.New(ctx))
-	//收藏
-	register.Add(favorite.New(ctx))
-	// 标签
-	register.Add(label.New(ctx))
 	// 举报
 	register.Add(report.New(ctx))
 	// 用户后台管理

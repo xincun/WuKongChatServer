@@ -104,33 +104,8 @@ func (ch *Channel) state(c *wkhttp.Context) {
 
 	var signalOn uint8 = 0
 	var onlineCount int = 0
-	if channelType == common.ChannelTypePerson.Uint8() {
-		onlineResp, err := ch.userService.GetDeviceOnline(channelID, config.Web)
-		if err != nil {
-			ch.Error("获取设备在线状态失败！", zap.Error(err))
-			c.ResponseError(errors.New("获取设备在线状态失败！"))
-			return
-		}
-		if onlineResp != nil && onlineResp.Online == 1 { // TODO: 如果web在线则不进行signal加密  web那块signal加密还没找到好的方案
-			signalOn = 0
-		} else {
-			if ch.ctx.GetConfig().EndToEndEncryptionOn {
-				keyCount, err := ch.userService.GetOnetimePrekeyCount(channelID)
-				if err != nil {
-					c.ResponseError(errors.New("获取一次性signal key数量失败！"))
-					ch.Error("获取一次性signal key数量失败！", zap.Error(err))
-					return
-				}
-				if keyCount > 0 {
-					signalOn = 1
-				}
-			} else {
-				signalOn = 0
-			}
-		}
+	if channelType != common.ChannelTypePerson.Uint8() {
 
-	} else {
-		signalOn = 0
 		members, err := ch.groupService.GetMembers(channelID)
 		if err != nil {
 			c.ResponseError(errors.New("查询群成员错误"))

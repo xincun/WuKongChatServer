@@ -48,7 +48,7 @@ func NewContext(cfg *Config) *Context {
 		cfg:            cfg,
 		UserIDGen:      userIDGen,
 		Log:            log.NewTLog("Context"),
-		EventPool:      pool.StartDispatcher(cfg.MessagePoolSize),
+		EventPool:      pool.StartDispatcher(cfg.EventPoolSize),
 		PushPool:       pool.StartDispatcher(cfg.PushPoolSize),
 		RobotEventPool: pool.StartDispatcher(cfg.RobotEventPoolSize),
 		aysncTask:      NewAsyncTask(cfg),
